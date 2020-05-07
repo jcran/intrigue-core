@@ -11,8 +11,8 @@ class SearchSpyse < BaseTask
       :references => ["https://spyse.com/apidocs"],
       :type => "discovery",
       :passive => true,
-      :allowed_types => ["String", "Domain"],
-      :example_entities => [{"type" => "String", "details" => {"name" => "jira"}}],
+      :allowed_types => ["String", "Domain", "IpAddress"],
+      :example_entities => [{"type" => "IpAddress", "details" => {"name" => "8.8.8.8"}}],
       :allowed_options => [],
       :created_types => ["DnsRecord","IpAddress","Organization","PhysicalLocation"]
     }
@@ -25,22 +25,22 @@ class SearchSpyse < BaseTask
     entity_name = _get_entity_name
     entity_type = _get_entity_type_string
 
-    # Make sure the key is set
-    api_key = _get_task_config("spyse_api_key")
-    # Set the headers
-    headers = {"api_token" =>  api_key}
-
     # Returns aggregate information by subdomain word : total count of subdomains, list of IPs of subdomains and subdomain count on every IP,
     # list of countries and subdomain count from it, list of CIDRs /24, /16 and subdomain list on every CIDR.
     if entity_type == "String"
       url = "https://api.spyse.com/v1/domains-starts-with-aggregate?sdword=#{entity_name}"
-      get_subdomains entity_name, api_key, headers, url
+      get_subdomains entity_name, url
 
     # Returns aggregate information by domain: total count of subdomains, list of IPs of subdomains and subdomain count on every IP,
     # list of countries and subdomain count from it, list of CIDRs /24, /16 and subdomain list on every CIDR.
     elsif entity_type == "Domain"
-      url = "https://api.spyse.com/v1//subdomains-aggregate?domain=#{entity_name}"
-      get_subdomains entity_name, api_key, headers, url
+      url = "https://api.spyse.com/v1/subdomains-aggregate?domain=#{entity_name}"
+      get_subdomains entity_name, url
+
+    elsif entity_type == "IpAddress"
+      
+      json = search_ip entity_name
+      puts json
 
     else
       _log_error "Unsupported entity type"
@@ -48,9 +48,30 @@ class SearchSpyse < BaseTask
 
   end #end run
 
+  def search_ip(ip_address)
+
+    # Make sure the key is set
+    api_key = _get_task_config("spyse_api_key")
+
+    # Set the headers
+    headers = {"api_token" =>  api_key, "accept" => "application/json"}
+
+    url = "https://api.spyse.com/v2/data/api/search/aggregate?search_params=#{ip_address}"
+
+    # make the request 
+    response = http_get_body(url,nil,headers)
+    json = JSON.parse(response)
+  end
+
 
   # Returns aggregate information by subdomain word and domain
-  def get_subdomains entity_name, api_key, headers, url
+  def get_subdomains(entity_name, api_key, headers, url)
+
+    # Make sure the key is set
+    api_key = _get_task_config("spyse_api_key")
+
+    # Set the headers
+    headers = {"api_token" =>  api_key}
 
     response = http_get_body(url,nil,headers)
     json = JSON.parse(response)
